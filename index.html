@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#142b34">
+  <meta name="description" content="Offline American and British cryptic crossword studio with a US/UK style switch, clueing tools, autofill, and PDF exports.">
+  <title>Gridwright — US & UK Crossword Studio</title>
+  <link rel="icon" href="assets/gridwright.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script src="src/model.js" defer></script>
+  <script src="src/autofill.js" defer></script>
+  <script src="src/export-formats.js" defer></script>
+  <script src="vendor/jspdf.umd.min.js" defer></script>
+  <script src="vendor/jspdf.plugin.autotable.min.js" defer></script>
+  <script src="src/pdf-export.js" defer></script>
+  <script src="src/default-words.js" defer></script>
+  <script src="src/british-word-priority.js" defer></script>
+  <script src="src/app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#top" aria-label="Gridwright home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <span class="brand-copy"><strong>GRIDWRIGHT</strong><small>US + UK CROSSWORDS</small></span>
+      </a>
+      <div class="topbar-center">
+        <label class="library-label" for="crosswordStyleSelect">STYLE</label>
+        <select id="crosswordStyleSelect" class="style-select" aria-label="Select crossword style">
+          <option value="american">American</option>
+          <option value="british">British Cryptic</option>
+        </select>
+        <label class="library-label" for="puzzleSelect">OPEN PUZZLE</label>
+        <select id="puzzleSelect" aria-label="Select a saved puzzle"></select>
+        <button id="newPuzzleButton" class="button button-quiet" type="button" title="Create a new puzzle">＋ New</button>
+      </div>
+      <div class="topbar-actions">
+        <button id="openFileButton" class="button button-quiet" type="button"><span aria-hidden="true">↥</span> Open</button>
+        <button id="saveFileButton" class="button button-primary" type="button"><span aria-hidden="true">↓</span> Save file</button>
+        <button id="exportPuzButton" class="button button-quiet format-export-button" type="button" aria-label="Export Across Lite .puz file" title="Export Across Lite .puz">.puz</button>
+        <button id="exportIpuzButton" class="button button-quiet format-export-button" type="button" aria-label="Export .ipuz file" title="Export .ipuz">.ipuz</button>
+        <button id="exportPuzzlePdfButton" class="button button-quiet format-export-button" type="button" aria-label="Download printable puzzle PDF" title="Download printable puzzle PDF">PDF</button>
+        <button id="exportSolutionPdfButton" class="button button-soft format-export-button solution-export-button" type="button" aria-label="Download solution grid PDF" title="Download the solution grid as a PDF"><span class="solution-export-full">Solution PDF</span><span class="solution-export-short">Sol PDF</span></button>
+        <button id="exportNytPdfButton" class="button button-quiet format-export-button" type="button" aria-label="Prepare NYT submission PDF" title="Prepare NYT submission PDF">NYT PDF</button>
+        <button id="printButton" class="button button-quiet print-button" type="button"><span aria-hidden="true">▤</span> Print</button>
+        <input id="fileInput" class="visually-hidden" type="file" accept=".json,.gwx.json,application/json" aria-label="Choose a Gridwright puzzle file">
+      </div>
+    </header>
+
+    <div class="workspace">
+      <aside class="left-panel">
+        <div class="mode-switch" role="tablist" aria-label="Workspace mode">
+          <button id="buildModeButton" class="mode-tab is-active" data-mode="build" role="tab" aria-selected="true" type="button"><span class="mode-icon">✎</span> Build</button>
+          <button id="solveModeButton" class="mode-tab" data-mode="solve" role="tab" aria-selected="false" type="button"><span class="mode-icon">▦</span> Solve</button>
+        </div>
+
+        <section class="panel-card details-card" aria-labelledby="detailsHeading">
+          <div class="section-kicker"><span class="tiny-dot"></span> PUZZLE DETAILS</div>
+          <h2 id="detailsHeading" class="sr-only">Puzzle details</h2>
+          <label class="field-label" for="titleInput">Title</label>
+          <input id="titleInput" class="text-field title-field" type="text" autocomplete="off" placeholder="Untitled crossword">
+          <label class="field-label" for="authorInput">Byline <span class="optional">optional</span></label>
+          <input id="authorInput" class="text-field" type="text" autocomplete="off" placeholder="Your name">
+          <div class="local-badge"><span class="local-dot"></span> Saved on this device</div>
+        </section>
+
+        <section id="buildTools" class="panel-card tool-card" aria-labelledby="buildHeading">
+          <div class="panel-heading-row"><div><div class="section-kicker">EDITOR TOOLS</div><h2 id="buildHeading">Grid setup</h2></div><span class="panel-number">01</span></div>
+          <div class="dimensions-row">
+            <label class="compact-field"><span>Rows</span><input id="rowsInput" type="number" min="3" max="60" value="15" inputmode="numeric"></label>
+            <span class="dimension-times">×</span>
+            <label class="compact-field"><span>Columns</span><input id="colsInput" type="number" min="3" max="60" value="15" inputmode="numeric"></label>
+            <button id="resizeButton" class="square-button" type="button" title="Apply grid dimensions" aria-label="Apply grid dimensions">↻</button>
+          </div>
+          <label class="check-row"><input id="mirrorBlocksInput" type="checkbox" checked><span class="custom-check"></span><span><strong>Mirror black squares</strong><small id="mirrorBlocksHint">180° symmetry for new blocks</small></span></label>
+          <div class="tool-divider"></div>
+          <button id="blockButton" class="tool-action" type="button"><span class="tool-action-icon block-icon"></span><span><strong>Toggle black square</strong><small>Spacebar on the selected cell</small></span><span class="tool-shortcut">SPACE</span></button>
+          <div class="generator-card">
+            <div class="generator-card-title"><span class="generator-spark">✦</span><span><strong>Automatic layout</strong><small id="generatorModeHint">Build a rule-checked block pattern</small></span></div>
+            <label class="density-control" for="blockDensityInput"><span>Black-square target</span><span class="density-input-wrap"><input id="blockDensityInput" type="number" min="5" max="40" value="15" step="1"><b>%</b></span></label>
+            <label class="check-row seed-check"><input id="anchorSeedInput" type="checkbox" checked><span class="custom-check"></span><span><strong>Start at selected square</strong><small>Click a cell first; if it breaks a rule, the seed shifts to the nearest legal square</small></span></label>
+            <button id="generateLayoutButton" class="button button-primary button-full generate-layout-button" type="button">✦ Generate valid layout</button>
+            <button id="validateLayoutButton" class="button button-soft button-full validate-layout-button" type="button">Check current layout</button>
+            <p id="generatorRuleNote" class="generator-rule-note">180° symmetry · one connected open area · no 1–2 letter entries</p>
+          </div>
+          <button id="clearButton" class="tool-action" type="button"><span class="tool-action-icon clear-icon">⌫</span><span><strong>Clear puzzle</strong><small>Remove blocks, answers, and clues</small></span></button>
+          <button id="deletePuzzleButton" class="text-danger-button" type="button">Delete this puzzle</button>
+        </section>
+
+        <section id="autoFillTools" class="panel-card autofill-card" aria-labelledby="autoFillHeading">
+          <div class="panel-heading-row"><div><div class="section-kicker">CROSSING-AWARE SOLVER</div><h2 id="autoFillHeading">Auto-fill answers</h2></div><span class="panel-number">02</span></div>
+          <div class="dictionary-status-row"><span class="dictionary-status-dot"></span><span id="dictionaryStatus" aria-live="polite">Loading default.txt…</span></div>
+          <div class="dictionary-actions">
+            <button id="defaultDictionaryButton" class="button button-soft" type="button">Use default.txt</button>
+            <button id="customDictionaryButton" class="button button-outline" type="button">Load .txt</button>
+            <input id="dictionaryFileInput" class="visually-hidden" type="file" accept=".txt,text/plain" aria-label="Choose a custom text word list">
+          </div>
+          <label class="check-row autofill-check"><input id="avoidRepeatsInput" type="checkbox" checked><span class="custom-check"></span><span><strong>Avoid duplicate answers</strong><small>Uncheck to allow a word to appear more than once</small></span></label>
+          <div class="autofill-numbers">
+            <label class="compact-field"><span>Search steps</span><input id="fillNodeLimitInput" type="number" min="100" max="1000000" step="10000" value="50000"></label>
+            <label class="compact-field"><span>Time limit (s)</span><input id="fillTimeLimitInput" type="number" min="1" max="120" step="1" value="20"></label>
+            <label class="compact-field"><span>Choices per slot</span><input id="fillCandidateLimitInput" type="number" min="1" max="10000" step="100" value="500"></label>
+          </div>
+          <button id="startAutoFillButton" class="button button-primary button-full autofill-start" type="button">✦ Auto-fill blanks</button>
+          <button id="tryAnotherFillButton" class="button button-soft button-full autofill-retry hidden" type="button" disabled>↻ Try another fill</button>
+          <button id="cancelAutoFillButton" class="button button-outline button-full autofill-stop" type="button" disabled>Stop search</button>
+          <div id="autoFillProgress" class="autofill-progress" role="progressbar" aria-label="Autofill search progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="autoFillProgressBar"></span></div>
+          <p id="autoFillStatus" class="autofill-result" role="status" aria-live="polite">The solver fits words to crossing letters and backtracks when a choice blocks the grid.</p>
+          <p class="autofill-note">One word per line. Earlier lines are preferred; the bundled list puts a curated common-word set first.</p>
+          <p class="autofill-note">After a fill, use “Try another fill” to exclude that grid and explore a different combination.</p>
+        </section>
+
+        <section id="solveTools" class="panel-card tool-card hidden" aria-labelledby="solveHeading">
+          <div class="panel-heading-row"><div><div class="section-kicker">SOLVER TOOLS</div><h2 id="solveHeading">Play controls</h2></div><span class="panel-number">03</span></div>
+          <div class="timer-card"><span class="timer-label">ELAPSED</span><strong id="timerText">00:00</strong><span id="progressText" class="timer-progress">0% filled</span></div>
+          <div class="solve-action-grid">
+            <button id="checkCellButton" class="solve-action" type="button"><span>✓</span><small>Check cell</small></button>
+            <button id="checkWordButton" class="solve-action" type="button"><span>✓</span><small>Check word</small></button>
+            <button id="revealCellButton" class="solve-action" type="button"><span>◉</span><small>Reveal cell</small></button>
+            <button id="revealWordButton" class="solve-action" type="button"><span>◉</span><small>Reveal word</small></button>
+          </div>
+          <button id="checkPuzzleButton" class="button button-primary button-full" type="button">Check whole puzzle</button>
+          <button id="revealPuzzleButton" class="button button-outline button-full" type="button">Reveal whole puzzle</button>
+          <button id="clearGuessesButton" class="text-danger-button" type="button">Clear my entries</button>
+          <p id="playHint" class="subtle-note">Switch to Build to add an answer key and clues.</p>
+        </section>
+
+        <section class="panel-card keyboard-card" aria-labelledby="keyboardHeading">
+          <div class="section-kicker">QUICK KEYS</div>
+          <h2 id="keyboardHeading">Keep your hands on the grid</h2>
+          <div class="shortcut-list"><span><kbd>← ↑ → ↓</kbd><em>Move & switch direction</em></span><span><kbd>Tab</kbd><em>Across / Down</em></span><span><kbd>⌘ Z</kbd><em>Undo</em></span><span><kbd>⌘ S</kbd><em>Save a file</em></span></div>
+        </section>
+      </aside>
+
+      <main class="board-panel" id="top">
+        <div class="board-heading">
+          <div class="board-heading-copy">
+            <div class="board-overline"><span id="modeDot" class="mode-dot"></span><span id="modeLabel">BUILD MODE</span><span class="overline-divider">/</span><span id="gridDimensionsLabel">15 × 15</span></div>
+            <h1 id="boardTitle">Untitled crossword</h1>
+            <p id="boardByline">A blank grid is a good beginning.</p>
+          </div>
+          <div class="board-actions">
+            <button id="undoButton" class="icon-button" type="button" title="Undo (Ctrl/Cmd+Z)" aria-label="Undo">↶</button>
+            <button id="redoButton" class="icon-button" type="button" title="Redo (Ctrl/Cmd+Y)" aria-label="Redo">↷</button>
+            <span class="action-separator"></span>
+            <button id="focusGridButton" class="button button-soft" type="button">Focus grid <span>↵</span></button>
+          </div>
+        </div>
+
+        <div class="board-statusbar">
+          <div><span class="status-square"></span><span id="entryCountText">0 entries</span><span class="status-divider">·</span><span id="fillCountText">0 filled</span></div>
+          <div class="save-status"><span id="saveStatusDot" class="save-status-dot"></span><span id="saveStatusText">Local autosave on</span></div>
+        </div>
+
+        <div class="grid-frame">
+          <div id="crosswordGrid" class="crossword-grid" role="grid" aria-label="Crossword grid"></div>
+        </div>
+
+        <div class="board-footer">
+          <div class="active-entry-indicator"><span class="active-entry-marker"></span><span>ACTIVE ENTRY</span><strong id="activeEntryLabel">Across 1</strong><span id="activeEntryLength" class="entry-length">0 cells</span></div>
+          <div id="toast" class="toast" role="status" aria-live="polite"></div>
+        </div>
+
+        <div class="privacy-strip"><span class="lock-icon" aria-hidden="true">▣</span><span><strong>Private by design.</strong> Your puzzles stay on this device unless you export them.</span><span class="privacy-spacer"></span><span class="privacy-tag">NO ACCOUNT · NO TRIAL · NO CLOUD</span></div>
+      </main>
+
+      <aside class="clue-panel" aria-labelledby="cluesHeading">
+        <div class="clue-panel-header">
+          <div><div id="cluePanelKicker" class="section-kicker">AMERICAN CLUES</div><h2 id="cluesHeading">Clues</h2></div>
+          <span id="clueTotal" class="clue-total">0</span>
+        </div>
+        <div class="direction-tabs" role="tablist" aria-label="Clue direction">
+          <button id="acrossTab" class="direction-tab is-active" data-direction="across" role="tab" aria-selected="true" type="button"><span>Across</span><strong id="acrossCount">0</strong></button>
+          <button id="downTab" class="direction-tab" data-direction="down" role="tab" aria-selected="false" type="button"><span>Down</span><strong id="downCount">0</strong></button>
+        </div>
+        <div id="clueList" class="clue-list" aria-live="polite"></div>
+        <div class="clue-panel-footer"><span class="mini-cursor">↖</span><span id="cluePanelHint">Choose a clue to jump to its first square. Add clue text while building.</span><button id="crypticReviewButton" class="button button-soft cryptic-review-button hidden" type="button">Review cryptic clues</button></div>
+      </aside>
+    </div>
+
+    <footer class="app-footer"><span>GRIDWRIGHT <span class="footer-separator">/</span> US + UK CROSSWORDS</span><span>Offline crossword editor · Cryptic clueing · Crossing-aware backtracking autofill</span></footer>
+
+    <details class="open-source-notices">
+      <summary>Open-source notices</summary>
+      <div class="open-source-notices-body">
+        <p><strong>Across Lite .puz writer:</strong> modified from Phil by Keiran King, Copyright 2017, under Apache License 2.0. <a id="philLicenseLink" href="LICENSE-APACHE-2.0-Phil.txt">View license</a></p>
+        <pre id="philLicenseText">The Apache 2.0 license is included in the US/UK Crossword Studio source archive.</pre>
+        <p><strong>jsPDF 4.2.1:</strong> Copyright 2010–2025 James Hall and yWorks GmbH, MIT License. <a id="jspdfLicenseLink" href="vendor/LICENSE-jspdf.txt">View license</a></p>
+        <pre id="jspdfLicenseText">The jsPDF MIT license is included in the US/UK Crossword Studio source archive.</pre>
+        <p><strong>jsPDF-AutoTable 5.0.9:</strong> Copyright 2014–2026 Simon Bengtsson, MIT License. <a id="autotableLicenseLink" href="vendor/LICENSE-jspdf-autotable.txt">View license</a></p>
+        <pre id="autotableLicenseText">The jsPDF-AutoTable MIT license is included in the US/UK Crossword Studio source archive.</pre>
+      </div>
+    </details>
+
+    <dialog id="nytSubmissionDialog" class="nyt-submission-dialog" aria-labelledby="nytDialogTitle">
+      <form id="nytSubmissionForm" class="nyt-dialog-form">
+        <div class="nyt-dialog-heading">
+          <div><div class="section-kicker">SUBMISSION PDF</div><h2 id="nytDialogTitle">New York Times crossword</h2></div>
+          <button id="closeNytDialogButton" class="icon-button nyt-dialog-close" type="button" aria-label="Close submission details">×</button>
+        </div>
+        <p class="nyt-dialog-intro">Creates a numbered answer grid, a blank grid, and double-spaced Across/Down clues with answers in a right-hand column. Contact details are included only in the PDF and are not saved with your puzzle.</p>
+        <label class="field-label" for="nytNameInput">Constructor name(s)</label>
+        <input id="nytNameInput" class="text-field" type="text" maxlength="160" autocomplete="name" required>
+        <label class="field-label" for="nytEmailInput">Email address</label>
+        <input id="nytEmailInput" class="text-field" type="email" maxlength="200" autocomplete="email" required>
+        <label class="field-label" for="nytAddressInput">Mailing address</label>
+        <textarea id="nytAddressInput" class="text-field nyt-address-field" rows="3" maxlength="500" autocomplete="street-address" required></textarea>
+        <p class="nyt-dialog-note">Formatting follows the current NYT technical checklist, but does not guarantee acceptance. Review the latest <a href="https://www.nytimes.com/article/submit-crossword-puzzles-the-new-york-times.html" target="_blank" rel="noopener">submission guidelines</a> before sending.</p>
+        <div class="nyt-dialog-actions">
+          <button id="cancelNytDialogButton" class="button button-quiet" type="button">Cancel</button>
+          <button id="createNytPdfButton" class="button button-primary" type="submit">Create NYT PDF</button>
+        </div>
+      </form>
+    </dialog>
+  </div>
+</body>
+</html>

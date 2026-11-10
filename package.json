@@ -1,0 +1,22 @@
+{
+  "name": "gridwright-us-uk-crossword",
+  "version": "0.2.0",
+  "private": true,
+  "description": "An offline American and British cryptic crossword studio with crossing-aware autofill.",
+  "license": "MIT",
+  "main": "main.cjs",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.cjs",
+    "standalone": "python3 scripts/build-standalone.py",
+    "wordlist:embed": "python3 scripts/build-default-words.py",
+    "package:win": "electron-packager . Gridwright-US-UK-Crossword --platform=win32 --arch=x64 --out=release --overwrite --asar --ignore=\"^/test\" --ignore=\"^/release\""
+  },
+  "devDependencies": {
+    "electron": "45.0.0",
+    "@electron/packager": "20.3.0"
+  }
+}
